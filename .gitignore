@@ -1,0 +1,7 @@
+.venv/
+*.venv
+*__pycache__/
+.git
+.env
+TOKEN_VAR
+*TOKEN_VAR

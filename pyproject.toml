@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "seleniumplusplus"
+version = "0.1.2"
+description = "Speeds up automation when using selenium"
+authors = ["vince <contact.polymons@gmail.com>"]
+license = "MIT License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-dotenv = "^1.0.1"
+selenium = "^4.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
