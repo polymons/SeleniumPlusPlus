@@ -343,6 +343,8 @@ class SeleniumUtils:
             self.move_to_element(element)
         return element
 
+
+    #BUG: Does not get the actual clickable element but probably the text above it
     def get_clickable_element_by_text(
         self, text: str, tag: str = "*", exact_match: bool = False, move_to_element: bool = True
     ) -> Optional[WebElement]:
