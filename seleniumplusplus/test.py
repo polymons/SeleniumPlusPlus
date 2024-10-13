@@ -11,6 +11,8 @@ import time
 import os
 import csv
 
+from selenium_initializer import save_json, init_driver
+from selenium_utils import SeleniumUtils
 
 
 driver = None
@@ -19,7 +21,9 @@ su = SeleniumUtils
 def site_test_1():
     global driver
     try:
-        su.get_clickable_element_by_text(driver, "Click me").click()
+        element = su.get_button_by_label("Click me")
+        print(element.accessible_name, element.is_displayed, element.id)
+        element.click()
     except Exception as e:
         print(e)
 
@@ -41,7 +45,7 @@ def get_local_element_by_label(label):
 
 
 # Main function
-def main():
+def main() -> None:
     global driver
     global su
     driver = init_driver(url="http://127.0.0.1:5500/seleniumplusplus/tests/page/index.html")
