@@ -1,4 +1,5 @@
 from selenium import webdriver
+from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -10,126 +11,59 @@ from selenium.common.exceptions import (
 )
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 
 class WaitUtils:
-    """
-    Class for handling waiting operations in Selenium.
+    """ """
 
-    Args:
-        driver (webdriver): The WebDriver instance to use for waiting.
-        timeout (int): The maximum time to wait for an element to be located (default is 10 seconds).
-
-    Methods:
-        wait_for_element(by, value, exact_match): Waits for an element to be located on the page.
-        wait_for_clickable(by, value, exact_match): Waits for an element to be clickable on the page.
-
-    Returns:
-        Optional[WebElement]: The located WebElement if found, None otherwise.
-    """
-
-    def __init__(self, driver: webdriver, timeout: int = 10) -> None:
+    def __init__(self, driver: WebDriver, timeout: int = 10) -> None:
         self.driver = driver
         self.wait = WebDriverWait(driver, timeout)
 
     def wait_for_element(
-        self, by: By, value: str, exact_match: bool = False
-    ) -> Optional[WebElement]:
+        self, by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"], value: str, exact_match: bool = False
+    ) -> WebElement:
         """
-        Waits for an element to be located on the page.
-
-        Args:
-            by (By): The locator strategy to use.
-            value (str): The value of the locator.
-            exact_match (bool): Whether to match the value exactly.
-
-        Returns:
-            Optional[WebElement]: The located WebElement if found, None otherwise.
         """
-        locator = (by, value)
-        try:
-            return self.wait.until(EC.presence_of_element_located(locator))
-        except TimeoutException as e:
-            print(f"Element with locator {by} and value '{value}', exact_match was set to {exact_match} not found: {e}")
-            return None
+        locator = (
+            str(by),
+            value,
+        )  # TODO: Check if this is correct, should be (By.XPATH, value) str cast might be bad
+        return self.wait.until(EC.presence_of_element_located(locator))
 
     def wait_for_clickable(
-        self, by: By, value: str, exact_match: bool = False
-    ) -> Optional[WebElement]:
-        """
-        Waits for an element to be clickable on the page.
-
-        Args:
-            by (By): The locator strategy to use.
-            value (str): The value of the locator.
-            exact_match (bool): Whether to match the value exactly.
-
-        Returns:
-            Optional[WebElement]: The located WebElement if found, None otherwise.
-        """
-        locator = (by, value)
-        try:
-            return self.wait.until(EC.element_to_be_clickable(locator))
-        except TimeoutException as e:
-            print(
-                f"Clickable element with locator {by} and value '{value}', exact_match was set to {exact_match} not found: {e}"
-            )
-            return None
+        self,
+        by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"],
+        value: str,
+        exact_match: bool = False,
+    ) -> WebElement:
+        """ """
+        locator = (str(by), value)
+        return self.wait.until(EC.element_to_be_clickable(locator))
 
 
 class SeleniumUtils:
-    """
-    Class for handling various Selenium operations like moving to elements, finding elements, filling inputs, and selecting options.
+    """ """
 
-    Args:
-        driver (webdriver): The WebDriver instance to use for Selenium operations.
-        timeout (int): The maximum time to wait for an element to be located (default is 10 seconds).
-
-    Methods:
-        move_to_element(element): Moves the mouse pointer to the specified element.
-        find_element(by, value, exact_match, move_to_element): Finds an element based on the locator strategy and value.
-        fill_input(by, value, input_text, exact_match, move_to_element): Fills an input field with the specified text.
-        select_option_by_text(by, value, option_text, exact_match, move_to_element): Selects an option by visible text.
-        select_option_by_value(by, value, option_value, exact_match, move_to_element): Selects an option by value.
-        find_element_by_text_or_attribute(text, tag, exact_match, move_to_element): Finds an element based on text or attribute.
-        find_button_by_text_or_attribute(text, exact_match, move_to_element): Finds a button based on text or attribute.
-        fill_input_by_attribute(attribute, attribute_name, input_text, exact_match, move_to_element): Fills an input field by attribute.
-        fill_select_by_text(attribute, attribute_name, option_text, exact_match, move_to_element): Selects an option in a select field by text.
-        fill_select_by_value(attribute, attribute_name, option_value, exact_match, move_to_element): Selects an option in a select field by value.
-        fill_boolean_select(attribute, attribute_name, value, exact_match, move_to_element): Fills a boolean select field.
-        fill_date_input(attribute, attribute_name, date, exact_match, move_to_element): Fills a date input field.
-        fill_datetime_input(attribute, attribute_name, datetime_str, exact_match, move_to_element): Fills a datetime input field.
-        find_element_by_id(element_id, exact_match, move_to_element): Finds an element by its ID.
-        get_element_by_attribute(attribute, attribute_value, wait_condition, tag, exact_match, move_to_element): Retrieves an element by attribute and value with optional wait conditions.
-
-    Returns:
-        None
-    """
-
-    def __init__(self, driver: webdriver, timeout: int = 10) -> None:
+    def __init__(self, driver: WebDriver, timeout: int = 10) -> None:
         self.driver = driver
         self.wait_utils = WaitUtils(driver, timeout)
         self.action_chains = ActionChains(driver)
 
     def move_to_element(self, element: WebElement) -> None:
-        """
-        Moves the mouse pointer to the specified element.
-
-        Args:
-            element (WebElement): The WebElement to move to.
-        """
+        """ """
         if element:
             try:
                 self.action_chains.move_to_element(element).perform()
             except WebDriverException as e:
                 print(f"Failed to move to element: {e}")
         else:
-            print("Element is not present and cannot be moved to.")
+            print("Element is null.")
 
     def find_element(
         self,
-        by: By,
+        by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"],
         value: str,
         exact_match: bool = False,
         move_to_element: bool = False,
@@ -141,7 +75,7 @@ class SeleniumUtils:
 
     def fill_input(
         self,
-        by: By,
+        by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"],
         value: str,
         input_text: str,
         exact_match: bool = False,
@@ -161,7 +95,7 @@ class SeleniumUtils:
 
     def select_option_by_text(
         self,
-        by: By,
+        by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"],
         value: str,
         option_text: str,
         exact_match: bool = False,
@@ -183,7 +117,7 @@ class SeleniumUtils:
 
     def select_option_by_value(
         self,
-        by: By,
+        by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"],
         value: str,
         option_value: str,
         exact_match: bool = False,
@@ -206,9 +140,7 @@ class SeleniumUtils:
     def construct_xpath(
         self, tag: str, attribute: str, value: str, exact_match: bool
     ) -> str:
-        """
-        Constructs an XPath query based on tag, attribute, value, and match type.
-        """
+        """ """
         return (
             f"//{tag}[@{attribute}='{value}']"
             if exact_match
@@ -318,24 +250,12 @@ class SeleniumUtils:
         self,
         attribute: str,
         attribute_value: str,
-        wait_condition: EC = EC.presence_of_element_located,
+        wait_condition,
         tag: str = "*",
         exact_match: bool = True,
         move_to_element: bool = False,
     ) -> Optional[WebElement]:
         """
-        Retrieves an element by attribute and value with optional wait conditions.
-
-        Args:
-            attribute (str): The attribute name to search for.
-            attribute_value (str): The value of the attribute to match.
-            wait_condition (EC): The expected condition to wait for (default is presence_of_element_located).
-            tag (str): The HTML tag to search for (default is '*').
-            exact_match (bool): Whether to match the attribute value exactly (default is True).
-            move_to_element (bool): Whether to move to the element after locating it (default is False).
-
-        Returns:
-            Optional[WebElement]: The located WebElement if found, None otherwise.
         """
         xpath = self.construct_xpath(tag, attribute, attribute_value, exact_match)
         element = self.wait_utils.wait.until(wait_condition((By.XPATH, xpath)))
@@ -343,21 +263,15 @@ class SeleniumUtils:
             self.move_to_element(element)
         return element
 
-
-    #BUG: Does not get the actual clickable element but probably the text above it
+    # BUG: Does not get the actual clickable element but probably the text above it
     def get_clickable_element_by_text(
-        self, text: str, tag: str = "*", exact_match: bool = False, move_to_element: bool = True
+        self,
+        text: str,
+        tag: str = "*",
+        exact_match: bool = False,
+        move_to_element: bool = True,
     ) -> Optional[WebElement]:
         """
-        Gets a single clickable element based on text.
-
-        Args:
-            text (str): The text to search for.
-            exact_match (bool): Whether to match the text exactly.
-            move_to_element (bool): Whether to move to the element after locating it.
-
-        Returns:
-            Optional[WebElement]: The located WebElement if found, None otherwise.
         """
         xpath = (
             f".//{tag}[text()='{text}']"
@@ -373,15 +287,6 @@ class SeleniumUtils:
         self, text: str, exact_match: bool = False, move_to_element: bool = False
     ) -> List[WebElement]:
         """
-        Gets multiple clickable elements based on text.
-
-        Args:
-            text (str): The text to search for.
-            exact_match (bool): Whether to match the text exactly.
-            move_to_element (bool): Whether to move to the elements after locating them.
-
-        Returns:
-            List[WebElement]: The list of located WebElements if found, empty list otherwise.
         """
         xpath = (
             f".//*[text()='{text}']"
@@ -398,17 +303,8 @@ class SeleniumUtils:
 
     def get_button_by_label(
         self, label: str, exact_match: bool = False, move_to_element: bool = False
-    ) -> Optional[WebElement]:
+    ) -> WebElement:
         """
-        Gets a button element based on its label text.
-
-        Args:
-            label (str): The label text to search for.
-            exact_match (bool): Whether to match the label text exactly.
-            move_to_element (bool): Whether to move to the button after locating it.
-
-        Returns:
-            Optional[WebElement]: The located button WebElement if found, None otherwise.
         """
         xpath = (
             f".//button[normalize-space(text())='{label}']"
@@ -424,15 +320,6 @@ class SeleniumUtils:
         self, label: str, exact_match: bool = False, move_to_element: bool = False
     ) -> List[WebElement]:
         """
-        Gets multiple button elements based on their label text.
-
-        Args:
-            label (str): The label text to search for.
-            exact_match (bool): Whether to match the label text exactly.
-            move_to_element (bool): Whether to move to the buttons after locating them.
-
-        Returns:
-            List[WebElement]: The list of located button WebElements if found, empty list otherwise.
         """
         xpath = (
             f".//button[normalize-space(text())='{label}']"

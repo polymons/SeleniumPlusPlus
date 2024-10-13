@@ -15,20 +15,21 @@ from selenium_initializer import save_json, init_driver
 from selenium_utils import SeleniumUtils
 
 
-driver = None
-su = SeleniumUtils
-
 def site_test_1():
     global driver
     try:
         element = su.get_button_by_label("Click me")
         print(element.accessible_name, element.is_displayed, element.id)
         element.click()
+        
+        test2 = su.get_button_by_label("Button")
+        test2.click()
+        
     except Exception as e:
         print(e)
 
 
-def get_local_element_by_label(label):
+""" def get_local_element_by_label(label):
     global driver
     wait = WebDriverWait(driver, 10)
     try:
@@ -42,7 +43,7 @@ def get_local_element_by_label(label):
             pass
             # raise Exception(f"Element with label `{label}` not found")
     return element
-
+ """
 
 # Main function
 def main() -> None:
