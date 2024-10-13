@@ -22,7 +22,7 @@ class WaitUtils:
         self.wait = WebDriverWait(driver, timeout)
 
     def wait_for_element(
-        self, by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"], value: str, exact_match: bool = False
+        self, by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"], value: str,
     ) -> WebElement:
         """
         """
@@ -36,7 +36,6 @@ class WaitUtils:
         self,
         by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"],
         value: str,
-        exact_match: bool = False,
     ) -> WebElement:
         """ """
         locator = (str(by), value)
@@ -65,10 +64,9 @@ class SeleniumUtils:
         self,
         by: Literal["id", "xpath", "link_text", "partial_link_text", "name", "tag_name", "class_name", "css_selector"],
         value: str,
-        exact_match: bool = False,
         move_to_element: bool = False,
-    ) -> Optional[WebElement]:
-        element = self.wait_utils.wait_for_element(by, value, exact_match)
+    ) -> WebElement:
+        element = self.wait_utils.wait_for_element(by, value)
         if element and move_to_element:
             self.move_to_element(element)
         return element
@@ -81,7 +79,7 @@ class SeleniumUtils:
         exact_match: bool = False,
         move_to_element: bool = False,
     ) -> None:
-        input_element = self.find_element(by, value, exact_match, move_to_element)
+        input_element = self.find_element(by, value, move_to_element)
         if input_element:
             try:
                 input_element.clear()
@@ -101,7 +99,7 @@ class SeleniumUtils:
         exact_match: bool = False,
         move_to_element: bool = False,
     ) -> None:
-        select_element = self.find_element(by, value, exact_match, move_to_element)
+        select_element = self.find_element(by, value, move_to_element)
         if select_element:
             try:
                 select = Select(select_element)
@@ -123,7 +121,7 @@ class SeleniumUtils:
         exact_match: bool = False,
         move_to_element: bool = False,
     ) -> None:
-        select_element = self.find_element(by, value, exact_match, move_to_element)
+        select_element = self.find_element(by, value, move_to_element)
         if select_element:
             try:
                 select = Select(select_element)
@@ -153,13 +151,13 @@ class SeleniumUtils:
         tag: str = "*",
         exact_match: bool = False,
         move_to_element: bool = False,
-    ) -> Optional[WebElement]:
+    ) -> WebElement:
         xpath = (
             f".//{tag}[descendant-or-self::*[text()='{text}']]"
             if exact_match
             else f".//{tag}[descendant-or-self::*[contains(text(), '{text}') or contains(@class, '{text}') or contains(@aria-label, '{text}') or contains(@placeholder, '{text}')]]"
         )
-        return self.find_element(By.XPATH, xpath, exact_match, move_to_element)
+        return self.find_element(By.XPATH, xpath, move_to_element)
 
     def find_button_by_text_or_attribute(
         self, text: str, exact_match: bool = False, move_to_element: bool = False
@@ -243,8 +241,8 @@ class SeleniumUtils:
 
     def find_element_by_id(
         self, element_id: str, exact_match: bool = False, move_to_element: bool = False
-    ) -> Optional[WebElement]:
-        return self.find_element(By.ID, element_id, exact_match, move_to_element)
+    ) -> WebElement:
+        return self.find_element(By.ID, element_id, move_to_element)
 
     def get_element_by_attribute(
         self,
@@ -254,7 +252,7 @@ class SeleniumUtils:
         tag: str = "*",
         exact_match: bool = True,
         move_to_element: bool = False,
-    ) -> Optional[WebElement]:
+    ) -> WebElement:
         """
         """
         xpath = self.construct_xpath(tag, attribute, attribute_value, exact_match)
@@ -270,15 +268,15 @@ class SeleniumUtils:
         tag: str = "*",
         exact_match: bool = False,
         move_to_element: bool = True,
-    ) -> Optional[WebElement]:
+    ) -> WebElement:
         """
         """
         xpath = (
             f".//{tag}[text()='{text}']"
             if exact_match
-            else f".//{tag}[contains(., '{text}')]"
+            else f".//{tag}[contains(text(), '{text}')]"
         )
-        element = self.wait_utils.wait_for_clickable(By.XPATH, xpath, exact_match)
+        element = self.wait_utils.wait_for_clickable(By.XPATH, xpath)
         if element and move_to_element:
             self.move_to_element(element)
         return element
@@ -311,7 +309,7 @@ class SeleniumUtils:
             if exact_match
             else f".//button[contains(text(), '{label}')]"
         )
-        button = self.wait_utils.wait_for_clickable(By.XPATH, xpath, exact_match)
+        button = self.wait_utils.wait_for_clickable(By.XPATH, xpath)
         if button and move_to_element:
             self.move_to_element(button)
         return button

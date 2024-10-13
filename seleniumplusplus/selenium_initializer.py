@@ -82,12 +82,13 @@ def read_csv(path, delimiter = ";", encoding = "utf-8-sig") -> list:
     return data
 
 
-def save_csv(path, data, delimiter = ";", encoding = "utf-8") -> None:
+def save_csv(path, data, fieldnames, delimiter = ";", encoding = "utf-8") -> None:
     """
     Saves the data to a CSV file at the specified path.
 
     Args:
         path (str): The path to the CSV file.
+        fieldnames (list): The fieldnames to use for the CSV file (if not present the top row's keys will be used).
         data (list): The data to be saved as a list of dictionaries.
         delimiter (str): The delimiter to use for separating fields in the CSV file. Default is ";".
         encoding (str): The encoding to use for the CSV file. Default is "utf-8".
@@ -98,9 +99,10 @@ def save_csv(path, data, delimiter = ";", encoding = "utf-8") -> None:
     # Save the updated data back to the CSV file
     try:
         with open(path, "w", newline="", encoding=encoding) as csvfile:
-            fieldnames = [
-                key for key in data[0].keys()
-            ]  # Get the fieldnames from the first row
+            if not fieldnames:
+                fieldnames = [
+                    key for key in data[0].keys()
+                ] # Get the fieldnames from the first row
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=delimiter)
             writer.writeheader()
             writer.writerows(data)
