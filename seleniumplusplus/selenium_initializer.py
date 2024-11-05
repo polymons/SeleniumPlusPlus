@@ -82,9 +82,9 @@ def read_csv(path, delimiter = ";", encoding = "utf-8-sig") -> list:
     return data
 
 
-def save_csv(path, data, fieldnames, delimiter = ";", encoding = "utf-8") -> None:
+def save_csv(path, data, fieldnames, delimiter = ";", encoding = "utf-8") -> bool:
     """
-    Saves the data to a CSV file at the specified path.
+    Saves the data to a CSV file at the specified path, creating the file if it doesn't exist.
 
     Args:
         path (str): The path to the CSV file.
@@ -96,8 +96,10 @@ def save_csv(path, data, fieldnames, delimiter = ";", encoding = "utf-8") -> Non
     Returns:
         bool: True if the data was saved successfully, False otherwise.
     """
-    # Save the updated data back to the CSV file
     try:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        
         with open(path, "w", newline="", encoding=encoding) as csvfile:
             if not fieldnames:
                 fieldnames = [
@@ -107,8 +109,10 @@ def save_csv(path, data, fieldnames, delimiter = ";", encoding = "utf-8") -> Non
             writer.writeheader()
             writer.writerows(data)
             print("Data saved successfully.")
+            return True
     except Exception as e:
         print(f"Error writing to CSV file: {e}")
+        return False
 
 
 def read_json(path, encoding='utf-8') -> Any | list:
