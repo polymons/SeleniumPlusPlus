@@ -15,3 +15,8 @@
 > poetry config pypi-token.pypi TOKEN_VAR
 > poetry build
 > poetry publish --build
+
+
+## Requirements
+
+pip freeze > requirements.txt

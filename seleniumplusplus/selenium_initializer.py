@@ -1,39 +1,53 @@
 # driver_initializer.py
-from typing import Any
+from typing import Any, Optional, Dict, Tuple, Union
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.webdriver import WebDriver
+from selenium.webdriver.remote.webdriver import WebDriver
+import logging
 import time
 from dotenv import load_dotenv
 import os
 import csv
 import json
+from pathlib import Path
+from typing import List, Dict, Any, Union
 
-from selenium.webdriver.chrome.webdriver import WebDriver
+logger = logging.getLogger(__name__)
 
-
-def init_driver(url) -> WebDriver:
+def init_driver(url: str, 
+                headless: bool = False,
+                custom_options: Optional[Dict[str, Any]] = None) -> WebDriver:
     """
-    Initialize the WebDriver with specified options and navigate to the given URL.
-
-    Args:
-        url (str): The URL to navigate to.
-
-    Returns:
-        WebDriver: The initialized WebDriver instance.
+    Enhanced driver initialization with more options
+    
+    :param url: The URL to navigate to
+    :param headless: Whether to run in headless mode
+    :param custom_options: Dictionary of additional Chrome options
+    :return: Initialized WebDriver
     """
     opt = Options()
     opt.add_argument("--search-engine-choice-country")
     opt.add_argument("--disable-search-engine-choice-screen")
-    driver = webdriver.Chrome(options=opt)
-    driver.maximize_window()
-    try:
-        driver.get(url)
-    except Exception as e:
-        print("Error navigating to URL:", e)
-        driver.quit()
-    time.sleep(2)
-    return driver
+    
+    if headless:
+        opt.add_argument("--headless")
+        
+    if custom_options:
+        for arg in custom_options.get('arguments', []):
+            opt.add_argument(arg)
+        for exp in custom_options.get('experimental_options', {}):
+            opt.add_experimental_option(exp['name'], exp['value'])
 
+    try:
+        driver = webdriver.Chrome(options=opt)
+        driver.maximize_window()
+        driver.get(url)
+        time.sleep(2)  # Consider replacing with explicit wait
+        return driver
+    except Exception as e:
+        logger.error(f"Failed to initialize driver: {str(e)}")
+        raise
 
 def read_login_env(username_id, password_id) -> tuple[str | None, str | None]:
     """
@@ -81,39 +95,43 @@ def read_csv(path, delimiter = ";", encoding = "utf-8-sig") -> list:
 
     return data
 
+def safe_file_operation(func):
+    """Decorator for safe file operations with proper error handling"""
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except FileNotFoundError as e:
+            logger.error(f"File not found: {str(e)}")
+            raise
+        except PermissionError as e:
+            logger.error(f"Permission denied: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Operation failed: {str(e)}")
+            raise
+    return wrapper
 
-def save_csv(path, data, fieldnames, delimiter = ";", encoding = "utf-8") -> bool:
-    """
-    Saves the data to a CSV file at the specified path, creating the file if it doesn't exist.
-
-    Args:
-        path (str): The path to the CSV file.
-        fieldnames (list): The fieldnames to use for the CSV file (if not present the top row's keys will be used).
-        data (list): The data to be saved as a list of dictionaries.
-        delimiter (str): The delimiter to use for separating fields in the CSV file. Default is ";".
-        encoding (str): The encoding to use for the CSV file. Default is "utf-8".
-
-    Returns:
-        bool: True if the data was saved successfully, False otherwise.
-    """
-    try:
-        # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+@safe_file_operation
+def save_csv(path: Union[str, Path], 
+             data: List[Dict], 
+             fieldnames: Optional[List[str]] = None,
+             delimiter: str = ";", 
+             encoding: str = "utf-8") -> bool:
+    """Enhanced CSV saving with better path handling and validation"""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    
+    if not data:
+        raise ValueError("No data provided to save")
         
-        with open(path, "w", newline="", encoding=encoding) as csvfile:
-            if not fieldnames:
-                fieldnames = [
-                    key for key in data[0].keys()
-                ] # Get the fieldnames from the first row
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=delimiter)
-            writer.writeheader()
-            writer.writerows(data)
-            print("Data saved successfully.")
-            return True
-    except Exception as e:
-        print(f"Error writing to CSV file: {e}")
-        return False
-
+    fieldnames = fieldnames or list(data[0].keys())
+    
+    with path.open("w", newline="", encoding=encoding) as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter=delimiter)
+        writer.writeheader()
+        writer.writerows(data)
+        logger.info(f"Successfully saved CSV to {path}")
+        return True
 
 def read_json(path, encoding='utf-8') -> Any | list:
     """

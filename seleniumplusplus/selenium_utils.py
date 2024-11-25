@@ -1,6 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.support.ui import WebDriverWait, Select
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support.select import Select
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
@@ -8,10 +9,16 @@ from selenium.common.exceptions import (
     WebDriverException,
     NoSuchElementException,
     ElementNotVisibleException,
+    StaleElementReferenceException,
 )
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Union
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class WaitUtils:
@@ -42,19 +49,30 @@ class WaitUtils:
             "css_selector",
         ],
         value: str,
+        timeout: Optional[int] = None,
     ) -> WebElement:
-        """
-        Waits for the presence of an element located by a specific selector.
-
-        :param by: The method to locate the element (e.g., 'id', 'xpath').
-        :param value: The value of the locator (e.g., 'button-id').
-        :return: The WebElement if found, otherwise raises TimeoutException.
-        """
-        locator = (
-            str(by),
-            value,
-        )  # TODO: Check if this is correct, should be (By.XPATH, value) str cast might not be necessary
-        return self.wait.until(EC.presence_of_element_located(locator))
+        """Enhanced wait_for_element with better error handling and timeout override"""
+        if not self.driver:
+            raise WebDriverException("Driver is not initialized")
+            
+        try:
+            wait = WebDriverWait(self.driver, timeout or self.wait._timeout)
+            by_attr = getattr(By, str(by).upper())
+            if not by_attr:
+                raise ValueError(f"Invalid locator method: {by}")
+                
+            element = wait.until(EC.presence_of_element_located((by_attr, value)))
+            if not element:
+                raise NoSuchElementException(f"Element not found with {by}={value}")
+                
+            return element
+            
+        except TimeoutException as e:
+            logger.error(f"Element not found within timeout: {by}={value}")
+            raise NoSuchElementException(f"Element not found with {by}={value}") from e
+        except Exception as e:
+            logger.error(f"Error waiting for element: {by}={value}, Error: {str(e)}")
+            raise
 
     def wait_for_clickable(
         self,
@@ -93,6 +111,8 @@ class SeleniumUtils:
         :param driver: The WebDriver instance to use.
         :param timeout: The maximum time to wait for elements (in seconds).
         """
+        if not driver:
+            raise ValueError("WebDriver instance is required")
         self.driver = driver
         self.wait_utils = WaitUtils(driver, timeout)
         self.action_chains = ActionChains(driver)
@@ -103,13 +123,18 @@ class SeleniumUtils:
 
         :param element: The WebElement to move to.
         """
-        if element:
-            try:
-                self.action_chains.move_to_element(element).perform()
-            except WebDriverException as e:
-                print(f"Failed to move to element: {e}")
-        else:
-            print("Element is null.")
+        if not element:
+            logger.error("Cannot move to None element")
+            return
+            
+        try:
+            if not element.is_enabled() or not element.is_displayed():
+                logger.warning("Element is not visible or enabled")
+                return
+                
+            self.action_chains.move_to_element(element).perform()
+        except Exception as e:
+            logger.error(f"Failed to move to element: {str(e)}")
 
     def find_element(
         self,
@@ -124,7 +149,7 @@ class SeleniumUtils:
             "css_selector",
         ],
         value: str,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> WebElement:
         """
         Finds an element based on the provided locator and optionally moves to it.
@@ -134,10 +159,21 @@ class SeleniumUtils:
         :param move_to_element: Whether to move to the element after finding it.
         :return: The located WebElement.
         """
-        element = self.wait_utils.wait_for_element(by, value)
-        if element and move_to_element:
-            self.move_to_element(element)
-        return element
+        if not value:
+            raise ValueError("Locator value cannot be empty")
+            
+        try:
+            element = self.wait_utils.wait_for_element(by, value)
+            if not element:
+                raise NoSuchElementException(f"Element not found with {by}={value}")
+                
+            if move_to_element:
+                self.move_to_element(element)
+            return element
+            
+        except Exception as e:
+            logger.error(f"Failed to find element: {by}={value}, Error: {str(e)}")
+            raise
 
     def fill_input(
         self,
@@ -154,7 +190,7 @@ class SeleniumUtils:
         value: str,
         input_text: str,
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> None:
         """
         Fills an input field with the specified text.
@@ -170,11 +206,11 @@ class SeleniumUtils:
             try:
                 input_element.clear()
                 input_element.send_keys(input_text)
-                print(
+                logger.info(
                     f"Successfully filled the input field '{value}' with text: {input_text}"
                 )
             except WebDriverException as e:
-                print(f"Failed to fill input field '{value}': {e}")
+                logger.error(f"Failed to fill input field '{value}': {e}")
                 raise e
 
     def select_option_by_text(
@@ -192,7 +228,7 @@ class SeleniumUtils:
         value: str,
         option_text: str,
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> None:
         """
         Selects an option in a dropdown by visible text.
@@ -208,11 +244,11 @@ class SeleniumUtils:
             try:
                 select = Select(select_element)
                 select.select_by_visible_text(option_text)
-                print(
+                logger.info(
                     f"Successfully selected option '{option_text}' for field '{value}'"
                 )
             except WebDriverException as e:
-                print(
+                logger.error(
                     f"Failed to select option '{option_text}' for field '{value}': {e}"
                 )
                 raise e
@@ -232,7 +268,7 @@ class SeleniumUtils:
         value: str,
         option_value: str,
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> None:
         """
         Selects an option in a dropdown by value.
@@ -248,11 +284,11 @@ class SeleniumUtils:
             try:
                 select = Select(select_element)
                 select.select_by_value(option_value)
-                print(
+                logger.info(
                     f"Successfully selected value '{option_value}' for field '{value}'"
                 )
             except WebDriverException as e:
-                print(
+                logger.error(
                     f"Failed to select value '{option_value}' for field '{value}': {e}"
                 )
                 raise e
@@ -280,7 +316,7 @@ class SeleniumUtils:
         text: str,
         tag: str = "*",
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> WebElement:
         """
         Finds an element by its text or various attributes (e.g., class, aria-label, placeholder).
@@ -304,7 +340,7 @@ class SeleniumUtils:
         attribute_name: str,
         input_text: str,
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> None:
         """
         Fills an input field located by a specific attribute and value.
@@ -324,7 +360,7 @@ class SeleniumUtils:
         attribute_name: str,
         option_text: str,
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> None:
         """
         Selects an option in a dropdown by visible text, located by a specific attribute and value.
@@ -346,7 +382,7 @@ class SeleniumUtils:
         attribute_name: str,
         option_value: str,
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> None:
         """
         Selects an option in a dropdown by value, located by a specific attribute and value.
@@ -368,7 +404,7 @@ class SeleniumUtils:
         attribute_name: str,
         value: bool,
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> None:
         """
         Selects an option in a dropdown based on a boolean value (Yes/No).
@@ -390,7 +426,7 @@ class SeleniumUtils:
         attribute_name: str,
         date: str,
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> None:
         """
         Fills a date input field located by a specific attribute and value.
@@ -410,7 +446,7 @@ class SeleniumUtils:
         attribute_name: str,
         datetime_str: str,
         exact_match: bool = False,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> None:
         """
         Fills a datetime input field located by a specific attribute and value.
@@ -426,7 +462,7 @@ class SeleniumUtils:
         )
 
     def find_element_by_id(
-        self, element_id: str, exact_match: bool = False, move_to_element: bool = False
+        self, element_id: str, exact_match: bool = False, move_to_element: bool = True
     ) -> WebElement:
         """
         Finds an element by its ID.
@@ -445,7 +481,7 @@ class SeleniumUtils:
         wait_condition,
         tag: str = "*",
         exact_match: bool = True,
-        move_to_element: bool = False,
+        move_to_element: bool = True,
     ) -> WebElement:
         """
         Waits for an element to be located by a specific attribute and value.
@@ -464,35 +500,38 @@ class SeleniumUtils:
             self.move_to_element(element)
         return element
 
-    # BUG: Does not get the actual clickable element but probably the text above it
     def get_clickable_element_by_text(
         self,
         text: str,
         tag: str = "*",
         exact_match: bool = False,
         move_to_element: bool = True,
+        include_descendants: bool = True,
     ) -> WebElement:
         """
-        Finds a clickable element by its text.
-
-        :param text: The text to search for.
-        :param tag: The HTML tag to search within (default is any tag).
-        :param exact_match: If True, matches the text exactly.
-        :param move_to_element: Whether to move to the element after finding it.
-        :return: The clickable WebElement.
+        Fixed version that properly finds clickable elements with text.
+        Added include_descendants parameter to control text search scope.
         """
+        text_match = "text()" if not include_descendants else ".//text()"
         xpath = (
-            f".//{tag}[text()='{text}']"
+            f".//{tag}[normalize-space({text_match})='{text}' and not(descendant::button)]"
             if exact_match
-            else f".//{tag}[contains(text(), '{text}')]"
+            else f".//{tag}[contains({text_match}, '{text}') and not(descendant::button)]"
         )
-        element = self.wait_utils.wait_for_clickable(By.XPATH, xpath)
-        if element and move_to_element:
-            self.move_to_element(element)
-        return element
+        try:
+            element = self.wait_utils.wait_for_clickable(By.XPATH, xpath)
+            if element and move_to_element:
+                self.move_to_element(element)
+            return element
+        except TimeoutException:
+            logger.error(f"No clickable element found with text: {text}")
+            raise
+        except Exception as e:
+            logger.error(f"Error finding clickable element: {str(e)}")
+            raise
 
     def get_clickable_elements_by_text(
-        self, text: str, exact_match: bool = False, move_to_element: bool = False
+        self, text: str, exact_match: bool = False, move_to_element: bool = True
     ) -> List[WebElement]:
         """
         Finds all clickable elements matching the specified text.
@@ -516,28 +555,94 @@ class SeleniumUtils:
         return elements
 
     def get_button_by_label(
-        self, label: str, exact_match: bool = False, move_to_element: bool = False
+        self, 
+        label: str, 
+        exact_match: bool = False, 
+        move_to_element: bool = True,
+        include_spans: bool = True,
+        include_inputs: bool = True,
+        case_sensitive: bool = False
     ) -> WebElement:
         """
-        Finds a button element by its label.
+        Enhanced button finder that handles various button implementations.
 
-        :param label: The label of the button to search for.
-        :param exact_match: If True, matches the label exactly.
-        :param move_to_element: Whether to move to the button after finding it.
-        :return: The found button WebElement.
+        :param label: The label/text of the button to search for
+        :param exact_match: If True, matches the label exactly
+        :param move_to_element: Whether to move to the button after finding it
+        :param include_spans: Include span elements that act as buttons
+        :param include_inputs: Include input elements of type button/submit
+        :param case_sensitive: Whether to match text case sensitively
+        :return: The found button WebElement
         """
-        xpath = (
-            f".//button[normalize-space(text())='{label}']"
+        label_text = label if case_sensitive else label.lower()
+        
+        # Build xpath conditions for text matching
+        text_match = (
+            f"normalize-space()='{label_text}'"
             if exact_match
-            else f".//button[contains(text(), '{label}')]"
+            else f"contains(normalize-space(),'{label_text}')"
         )
-        button = self.wait_utils.wait_for_clickable(By.XPATH, xpath)
-        if button and move_to_element:
-            self.move_to_element(button)
-        return button
+        
+        if not case_sensitive:
+            text_match = f"translate({text_match}, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')"
+
+        # Base button selectors
+        button_conditions = [
+            f".//button[{text_match}]",  # Standard buttons
+            f".//button[.//*[{text_match}]]",  # Buttons with nested elements
+        ]
+
+        # Add optional selectors
+        if include_spans:
+            button_conditions.extend([
+                f".//span[{text_match} and @role='button']",
+                f".//div[{text_match} and @role='button']",
+                f".//a[{text_match} and @role='button']"
+            ])
+
+        if include_inputs:
+            button_conditions.extend([
+                f".//input[@type='button' and {text_match}]",
+                f".//input[@type='submit' and {text_match}]",
+                f".//input[@value and {text_match} and (@type='button' or @type='submit')]"
+            ])
+
+        # Combine all conditions
+        xpath = f"({' | '.join(button_conditions)})"
+
+        try:
+            # Try to find clickable button
+            button = self.wait_utils.wait_for_clickable(By.XPATH, xpath)
+            if not button:
+                # If not found, try finding any matching element
+                button = self.wait_utils.wait_for_element(By.XPATH, xpath)
+
+            if button and move_to_element:
+                self.move_to_element(button)
+
+            return button
+
+        except Exception as e:
+            logger.error(f"Failed to find button with label '{label}': {str(e)}")
+            # Try finding buttons in iframes before giving up
+            iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
+            for iframe in iframes:
+                try:
+                    self.driver.switch_to.frame(iframe)
+                    button = self.wait_utils.wait_for_clickable(By.XPATH, xpath)
+                    if button:
+                        if move_to_element:
+                            self.move_to_element(button)
+                        return button
+                except:
+                    continue
+                finally:
+                    self.driver.switch_to.default_content()
+            
+            raise NoSuchElementException(f"No button found with label: {label}")
 
     def get_buttons_by_label(
-        self, label: str, exact_match: bool = False, move_to_element: bool = False
+        self, label: str, exact_match: bool = False, move_to_element: bool = True
     ) -> List[WebElement]:
         """
         Finds all button elements matching the specified label.
@@ -559,3 +664,40 @@ class SeleniumUtils:
             for button in buttons:
                 self.move_to_element(button)
         return buttons
+
+    def safe_click(self, element: WebElement, retry_count: int = 3) -> bool:
+        """
+        New convenience method for safely clicking elements with retries
+        
+        :param element: The element to click
+        :param retry_count: Number of retry attempts
+        :return: True if click successful, False otherwise
+        """
+        for i in range(retry_count):
+            try:
+                if element.is_displayed() and element.is_enabled():
+                    element.click()
+                    return True
+            except StaleElementReferenceException:
+                if i == retry_count - 1:
+                    logger.error("Element became stale")
+                    return False
+                continue
+            except Exception as e:
+                logger.error(f"Click failed: {str(e)}")
+                return False
+        return False
+
+    def wait_for_text(self, text: str, timeout: Optional[int] = None) -> bool:
+        """
+        New convenience method to wait for text to appear anywhere on the page
+        
+        :param text: Text to wait for
+        :param timeout: Optional custom timeout
+        :return: True if text found, False if timeout
+        """
+        try:
+            wait = WebDriverWait(self.driver, timeout or self.wait_utils.wait._timeout)
+            return wait.until(lambda driver: text in driver.page_source)
+        except TimeoutException:
+            return False
