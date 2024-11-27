@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "seleniumplusplus"
-version = "0.1.5"
+version = "0.1.6"
 description = "Speeds up automation when using selenium"
 authors = ["vince <contact.polymons@gmail.com>"]
 license = "MIT License"
